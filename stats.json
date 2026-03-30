@@ -1,91 +1,21 @@
 {
-  "total_scans": 32,
+  "total_scans": 36,
   "file_scans": 0,
   "url_scans": 6,
   "code_scans": 1,
   "password_checks": 0,
-  "port_scans": 1,
+  "port_scans": 2,
   "email_analyses": 0,
   "ip_lookups": 0,
   "leak_checks": 0,
   "encryptions": 2,
   "decryptions": 20,
-  "wifi_scans": 1,
-  "reports_generated": 1,
-  "threats_detected": 4818,
+  "wifi_scans": 3,
+  "reports_generated": 2,
+  "threats_detected": 5093,
   "normal_traffic": 0,
-  "malicious_traffic": 4818,
+  "malicious_traffic": 5093,
   "traffic_history": [
-    {
-      "time": "06:50",
-      "normal": 0,
-      "malicious": 4253
-    },
-    {
-      "time": "06:51",
-      "normal": 0,
-      "malicious": 4273
-    },
-    {
-      "time": "06:52",
-      "normal": 0,
-      "malicious": 4293
-    },
-    {
-      "time": "06:53",
-      "normal": 0,
-      "malicious": 4313
-    },
-    {
-      "time": "06:55",
-      "normal": 0,
-      "malicious": 4324
-    },
-    {
-      "time": "06:55",
-      "normal": 0,
-      "malicious": 4344
-    },
-    {
-      "time": "06:55",
-      "normal": 0,
-      "malicious": 4364
-    },
-    {
-      "time": "06:55",
-      "normal": 0,
-      "malicious": 4384
-    },
-    {
-      "time": "06:56",
-      "normal": 0,
-      "malicious": 4404
-    },
-    {
-      "time": "06:56",
-      "normal": 0,
-      "malicious": 4424
-    },
-    {
-      "time": "04:40",
-      "normal": 0,
-      "malicious": 4438
-    },
-    {
-      "time": "04:40",
-      "normal": 0,
-      "malicious": 4458
-    },
-    {
-      "time": "04:40",
-      "normal": 0,
-      "malicious": 4478
-    },
-    {
-      "time": "04:40",
-      "normal": 0,
-      "malicious": 4498
-    },
     {
       "time": "04:40",
       "normal": 0,
@@ -165,14 +95,84 @@
       "time": "04:49",
       "normal": 0,
       "malicious": 4818
+    },
+    {
+      "time": "05:15",
+      "normal": 0,
+      "malicious": 4833
+    },
+    {
+      "time": "05:15",
+      "normal": 0,
+      "malicious": 4853
+    },
+    {
+      "time": "05:15",
+      "normal": 0,
+      "malicious": 4873
+    },
+    {
+      "time": "05:15",
+      "normal": 0,
+      "malicious": 4893
+    },
+    {
+      "time": "05:15",
+      "normal": 0,
+      "malicious": 4913
+    },
+    {
+      "time": "05:15",
+      "normal": 0,
+      "malicious": 4933
+    },
+    {
+      "time": "05:15",
+      "normal": 0,
+      "malicious": 4953
+    },
+    {
+      "time": "05:16",
+      "normal": 0,
+      "malicious": 4973
+    },
+    {
+      "time": "05:16",
+      "normal": 0,
+      "malicious": 4993
+    },
+    {
+      "time": "05:16",
+      "normal": 0,
+      "malicious": 5013
+    },
+    {
+      "time": "05:16",
+      "normal": 0,
+      "malicious": 5033
+    },
+    {
+      "time": "05:16",
+      "normal": 0,
+      "malicious": 5053
+    },
+    {
+      "time": "05:16",
+      "normal": 0,
+      "malicious": 5086
+    },
+    {
+      "time": "05:16",
+      "normal": 0,
+      "malicious": 5093
     }
   ],
   "attack_distribution": {
     "DDoS": 0,
-    "SQL Injection": 4818,
+    "SQL Injection": 5093,
     "Port Scan": 0,
     "Brute Force": 0
   },
   "started_at": "2026-03-28 06:18:04",
-  "last_updated": "2026-03-31 04:49:27"
+  "last_updated": "2026-03-31 05:18:37"
 }
