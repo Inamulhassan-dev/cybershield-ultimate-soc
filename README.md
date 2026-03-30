@@ -32,9 +32,13 @@ Equipped with a robust suite of 14 integrated security modules, CyberShield Ulti
 
 ## 📸 Screenshots
 
-*(Add your screenshots here)*
-
-*Example: `![Dashboard](link-to-image)`*
+![Dashboard](screenshots/dashboard.png.png)
+![Network Shield](screenshots/network-shield.png.png)
+![Wi-Fi Scanner](screenshots/wifi-scanner.png.png)
+![Encryption Tool](screenshots/encryption-tool.png.png)
+![System Watch](screenshots/system-watch.png.png)
+![Security Report](screenshots/security-report.png.png)
+```
 
 ---
 
