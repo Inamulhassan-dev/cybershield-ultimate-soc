@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title_extra %}- Report Generator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-file-earmark-pdf-fill"></i> Report Generator</h1>
+    <p class="page-subtitle">Generate a complete security report that you can print or save as PDF</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Click <strong>"Generate Report"</strong> to run all security checks and create a printable report. Then use <strong>Ctrl + P</strong> to print or save as PDF.</span>
+</div>
+
+<div class="cyber-card mb-3" style="text-align:center">
+    <p class="text-dim" style="margin-bottom:16px">This will run a Security Score check, Port Scan, and Wi-Fi Scan to create a full report.</p>
+    <button class="btn-cyber" onclick="generateReport()" id="reportBtn" style="font-size:14px;padding:14px 32px">
+        <i class="bi bi-file-earmark-pdf"></i> Generate Full Report
+    </button>
+</div>
+
+<div id="reportOutput" class="hidden">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px">
+        <button class="btn-cyber btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save as PDF</button>
+    </div>
+
+    <div class="cyber-card" id="reportContent" style="background:rgba(5,10,20,0.95)">
+        <!-- Report header -->
+        <div style="text-align:center;padding:24px 0;border-bottom:2px solid var(--accent-cyan)">
+            <div style="font-family:var(--font-display);font-size:24px;color:var(--accent-cyan);letter-spacing:4px">CYBERSHIELD</div>
+            <div style="font-family:var(--font-display);font-size:14px;color:#fff;letter-spacing:3px;margin-top:4px">SECURITY REPORT</div>
+            <div class="text-dim text-mono" style="font-size:11px;margin-top:8px" id="reportDate">---</div>
+        </div>
+
+        <!-- Security Score Section -->
+        <div id="reportScoreSection" style="padding:24px 0;border-bottom:1px solid var(--border-color)">
+            <div style="font-family:var(--font-display);font-size:14px;color:var(--accent-cyan);letter-spacing:2px;margin-bottom:16px">1. OVERALL SECURITY SCORE</div>
+            <div style="display:flex;align-items:center;gap:24px">
+                <div style="text-align:center">
+                    <div style="font-family:var(--font-display);font-size:64px;font-weight:700" id="reportGrade">--</div>
+                    <div class="text-dim text-mono" id="reportVerdict">---</div>
+                </div>
+                <div style="flex:1" id="reportChecks"></div>
+            </div>
+        </div>
+
+        <!-- Port Scan Section -->
+        <div id="reportPortSection" style="padding:24px 0;border-bottom:1px solid var(--border-color)">
+            <div style="font-family:var(--font-display);font-size:14px;color:var(--accent-cyan);letter-spacing:2px;margin-bottom:16px">2. PORT SCAN RESULTS</div>
+            <div id="reportPorts"></div>
+        </div>
+
+        <!-- Wi-Fi Section -->
+        <div id="reportWifiSection" style="padding:24px 0">
+            <div style="font-family:var(--font-display);font-size:14px;color:var(--accent-cyan);letter-spacing:2px;margin-bottom:16px">3. WI-FI SECURITY</div>
+            <div id="reportWifi"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function generateReport() {
+    const btn = document.getElementById('reportBtn');
+    btn.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;display:inline-block"></div> Generating Report (this may take 10-15 seconds)...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/generate-report', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+        btn.innerHTML = '<i class="bi bi-file-earmark-pdf"></i> Regenerate Report';
+        btn.disabled = false;
+
+        document.getElementById('reportOutput').classList.remove('hidden');
+        document.getElementById('reportDate').textContent = 'Generated: ' + data.generated_at;
+
+        // Render sections
+        data.sections.forEach(s => {
+            if (s.title === 'Overall Security Score') {
+                const scoreColor = s.score >= 80 ? 'var(--accent-green)' : s.score >= 60 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+                document.getElementById('reportGrade').textContent = s.grade;
+                document.getElementById('reportGrade').style.color = scoreColor;
+                document.getElementById('reportVerdict').textContent = `${s.verdict} (${s.score}/100)`;
+
+                document.getElementById('reportChecks').innerHTML = (s.checks || []).map(c => {
+                    const icon = c.status === 'safe' ? '✅' : c.status === 'critical' ? '❌' : c.status === 'warning' ? '⚠️' : 'ℹ️';
+                    return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03)">
+                        <span>${icon} ${c.name}</span>
+                        <span class="text-dim" style="font-size:12px">${c.detail}</span>
+                    </div>`;
+                }).join('');
+            }
+
+            if (s.title === 'Port Scan Results') {
+                let html = `<div class="text-dim" style="margin-bottom:12px">Target: ${s.target} | Open ports: ${s.open_count} | Verdict: ${s.verdict}</div>`;
+                if (s.ports && s.ports.length > 0) {
+                    html += '<table class="cyber-table"><thead><tr><th>Port</th><th>Service</th><th>Risk</th></tr></thead><tbody>';
+                    s.ports.forEach(p => {
+                        html += `<tr><td>${p.port}</td><td>${p.service}</td><td><span class="badge badge-${p.risk === 'critical' ? 'danger' : 'safe'}">${p.risk}</span></td></tr>`;
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    html += '<div class="text-dim" style="padding:12px">No open ports detected — system is well protected.</div>';
+                }
+                document.getElementById('reportPorts').innerHTML = html;
+            }
+
+            if (s.title === 'Wi-Fi Security') {
+                if (s.connected) {
+                    document.getElementById('reportWifi').innerHTML = `
+                        <div style="display:grid;gap:8px">
+                            <div class="d-flex justify-between"><span class="text-dim">Network</span><span>${s.connected.ssid}</span></div>
+                            <div class="d-flex justify-between"><span class="text-dim">Encryption</span><span>${s.connected.auth}</span></div>
+                            <div class="d-flex justify-between"><span class="text-dim">Status</span><span class="badge badge-${s.connected.risk === 'safe' ? 'safe' : 'warning'}">${s.connected.risk_note}</span></div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('reportWifi').innerHTML = '<div class="text-dim">Not connected to Wi-Fi</div>';
+                }
+            }
+        });
+
+    } catch(e) {
+        btn.innerHTML = '<i class="bi bi-file-earmark-pdf"></i> Generate Report';
+        btn.disabled = false;
+        alert('Report generation failed: ' + e.message);
+    }
+}
+</script>
+
+<style>
+@media print {
+    .app-sidebar, .app-right-panel, .app-header, .app-footer, .how-to-hint,
+    .page-header, .btn-cyber, body::before, body::after { display: none !important; }
+    .app-wrapper { display: block !important; }
+    .app-main { max-height: none !important; padding: 0 !important; }
+    #reportContent { background: #fff !important; color: #000 !important; }
+    #reportContent * { color: #000 !important; border-color: #ccc !important; }
+    #reportContent .badge { background: #eee !important; }
+}
+</style>
+{% endblock %}

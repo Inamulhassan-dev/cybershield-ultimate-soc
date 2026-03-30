@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title_extra %}- Email Analyzer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-envelope-exclamation-fill"></i> Email Analyzer</h1>
+    <p class="page-subtitle">Paste an email header to check if the email is legitimate or a phishing attempt</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Open any email → click "Show Original" or "View Source" → copy the headers → paste them below. Click <strong>"Load Sample"</strong> to try with a demo header.</span>
+</div>
+
+<div class="cyber-card mb-3">
+    <div class="card-header">
+        <span class="card-title">Paste Email Headers</span>
+        <button class="btn-cyber btn-sm" onclick="loadSampleHeader()"><i class="bi bi-file-code"></i> 📋 Load Sample</button>
+    </div>
+    <textarea class="cyber-input" id="headerInput" rows="10" placeholder="Paste the full email headers here..."></textarea>
+    <div style="margin-top:12px;text-align:right">
+        <button class="btn-cyber" onclick="analyzeEmail()"><i class="bi bi-search"></i> Analyze Headers</button>
+    </div>
+</div>
+
+<!-- Results -->
+<div id="emailResults" class="hidden">
+    <div class="grid-2 mb-3">
+        <div class="result-card" id="emailVerdictCard">
+            <div class="text-mono text-dim" style="font-size:11px;margin-bottom:4px">VERDICT</div>
+            <div class="result-verdict" id="emailVerdict">---</div>
+            <div style="margin-top:12px">
+                <div class="risk-meter" style="margin:0 auto">
+                    <svg width="120" height="120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                        <circle id="emailRiskCircle" cx="60" cy="60" r="50" fill="none" stroke="var(--accent-green)" stroke-width="8"
+                            stroke-dasharray="314" stroke-dashoffset="314" stroke-linecap="round"/>
+                    </svg>
+                    <div class="risk-meter-value" id="emailRiskScore">0</div>
+                    <div class="risk-meter-label">SPAM RISK</div>
+                </div>
+            </div>
+        </div>
+        <div class="cyber-card">
+            <div class="card-title mb-2">Email Details</div>
+            <div style="display:grid;gap:10px" id="emailDetails"></div>
+        </div>
+    </div>
+
+    <div class="grid-2 mb-3">
+        <div class="cyber-card">
+            <div class="card-header"><span class="card-title">Email Route</span><span class="badge badge-info" id="hopCount">0 hops</span></div>
+            <div id="hopsList" style="max-height:250px;overflow-y:auto"></div>
+        </div>
+        <div class="cyber-card">
+            <div class="card-header"><span class="card-title">IP Addresses Found</span></div>
+            <div id="ipList" style="display:grid;gap:4px"></div>
+        </div>
+    </div>
+
+    <div class="cyber-card">
+        <div class="card-header"><span class="card-title">Security Checks</span></div>
+        <div id="emailFindings"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadSampleHeader() {
+    document.getElementById('headerInput').value = `Delivered-To: user@example.com
+Received: by 2002:a05:6214:20a:0:0:0:0 with SMTP id 10csp12345wrc;
+        Mon, 24 Mar 2026 10:15:00 -0700
+Received: from mail-suspicious.example.tk (mail-suspicious.example.tk [185.234.72.100])
+        by mx.google.com with ESMTPS id abc123
+        for <user@example.com>; Mon, 24 Mar 2026 10:14:58 -0700
+Received: from localhost (unknown [10.0.0.1])
+        by mail-suspicious.example.tk with SMTP; Mon, 24 Mar 2026 17:14:55 +0000
+Authentication-Results: mx.google.com;
+       spf=fail (google.com: domain of admin@paypal-security.tk does not designate 185.234.72.100 as permitted sender);
+       dkim=fail header.i=@paypal-security.tk;
+       dmarc=fail
+From: "PayPal Security" <admin@paypal-security.tk>
+Reply-To: scammer@freemail.ru
+To: user@example.com
+Subject: URGENT: Your account has been suspended - Verify Now!
+Date: Mon, 24 Mar 2026 17:14:55 +0000
+Content-Type: text/html; charset="UTF-8"`;
+}
+
+async function analyzeEmail() {
+    const header = document.getElementById('headerInput').value.trim();
+    if (!header) { alert('Please paste email headers first'); return; }
+
+    try {
+        const res = await fetch('/api/analyze-email', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({header})
+        });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+
+        document.getElementById('emailResults').classList.remove('hidden');
+
+        // Verdict
+        const score = data.risk_score;
+        document.getElementById('emailVerdict').textContent = data.verdict;
+        document.getElementById('emailVerdict').className = 'result-verdict ' + (score < 30 ? 'safe' : score < 60 ? 'warning' : 'danger');
+        document.getElementById('emailVerdictCard').className = 'result-card ' + (score < 30 ? 'safe' : score < 60 ? 'warning' : 'danger');
+
+        document.getElementById('emailRiskScore').textContent = score;
+        const circle = document.getElementById('emailRiskCircle');
+        circle.style.strokeDashoffset = 314 - (314 * score / 100);
+        const color = score < 30 ? 'var(--accent-green)' : score < 60 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+        circle.style.stroke = color;
+        document.getElementById('emailRiskScore').style.color = color;
+
+        // Details
+        document.getElementById('emailDetails').innerHTML = `
+            <div class="d-flex justify-between"><span class="text-dim">From</span><span style="word-break:break-all">${data.from}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">To</span><span>${data.to}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">Subject</span><span style="color:var(--accent-yellow);word-break:break-all">${data.subject}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">Date</span><span>${data.date}</span></div>
+            ${data.reply_to ? `<div class="d-flex justify-between"><span class="text-dim">Reply-To</span><span style="color:var(--accent-red)">${data.reply_to}</span></div>` : ''}
+        `;
+
+        // Hops
+        const hops = data.hops || [];
+        document.getElementById('hopCount').textContent = `${hops.length} hops`;
+        document.getElementById('hopsList').innerHTML = hops.map((h, i) => `
+            <div class="finding-item"><div class="finding-icon info"><span style="font-size:12px;font-weight:bold">${h.hop}</span></div>
+            <div><div style="font-size:12px;color:#fff">From: ${h.from}</div><div class="text-dim" style="font-size:11px">To: ${h.by}</div></div></div>
+        `).join('');
+
+        // IPs
+        document.getElementById('ipList').innerHTML = (data.ips || []).map(ip => `
+            <div style="padding:6px 10px;background:rgba(0,0,0,0.2);border-radius:4px;font-family:var(--font-mono);font-size:12px;color:var(--accent-cyan)">${ip}</div>
+        `).join('');
+
+        // Findings
+        document.getElementById('emailFindings').innerHTML = (data.findings || []).map(f => `
+            <div class="finding-item"><div class="finding-icon ${f.type}"><i class="bi bi-${f.type === 'critical' ? 'exclamation-triangle-fill' : f.type === 'safe' ? 'check-circle-fill' : 'exclamation-circle-fill'}"></i></div>
+            <div class="finding-text">${f.message}</div></div>
+        `).join('');
+
+    } catch(e) { alert('Analysis failed: ' + e.message); }
+}
+</script>
+{% endblock %}

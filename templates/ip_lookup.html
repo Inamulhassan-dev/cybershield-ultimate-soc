@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title_extra %}- IP Lookup{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-geo-alt-fill"></i> IP Geolocation</h1>
+    <p class="page-subtitle">Enter any IP address to find out where it's located and who owns it</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Enter an IP address and click <strong>"Lookup"</strong> to see its country, city, ISP, and risk level. Try: <strong>8.8.8.8</strong> (Google) or <strong>1.1.1.1</strong> (Cloudflare).</span>
+</div>
+
+<div class="cyber-card mb-3">
+    <div class="card-header"><span class="card-title">Enter IP Address</span></div>
+    <div class="d-flex gap-2" style="flex-wrap:wrap">
+        <input type="text" class="cyber-input" id="ipInput" placeholder="e.g. 8.8.8.8" style="flex:1">
+        <button class="btn-cyber" onclick="lookupIP()" id="ipBtn"><i class="bi bi-geo-alt"></i> Lookup</button>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn-cyber btn-sm" onclick="document.getElementById('ipInput').value='8.8.8.8';lookupIP()" style="font-size:9px">🔍 Google DNS</button>
+        <button class="btn-cyber btn-sm" onclick="document.getElementById('ipInput').value='1.1.1.1';lookupIP()" style="font-size:9px">🔍 Cloudflare</button>
+        <button class="btn-cyber btn-sm" onclick="document.getElementById('ipInput').value='208.67.222.222';lookupIP()" style="font-size:9px">🔍 OpenDNS</button>
+    </div>
+</div>
+
+<div id="ipResults" class="hidden">
+    <div class="grid-2">
+        <div class="cyber-card">
+            <div class="card-title mb-2">Location Details</div>
+            <div style="display:grid;gap:10px" id="ipDetails"></div>
+        </div>
+        <div class="cyber-card" style="text-align:center">
+            <div style="font-size:72px;margin:16px 0" id="countryFlag">🌍</div>
+            <div style="font-family:var(--font-display);font-size:18px;color:#fff" id="ipCountry">---</div>
+            <div class="text-dim" id="ipCity">---</div>
+            <div style="margin-top:16px">
+                <span class="badge" id="ipRiskBadge">---</span>
+            </div>
+            <div class="text-dim" style="font-size:12px;margin-top:8px" id="ipRiskNote">---</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const countryFlags = {'US':'🇺🇸','GB':'🇬🇧','DE':'🇩🇪','FR':'🇫🇷','JP':'🇯🇵','CN':'🇨🇳','IN':'🇮🇳','BR':'🇧🇷','AU':'🇦🇺','CA':'🇨🇦','RU':'🇷🇺','KR':'🇰🇷','IT':'🇮🇹','ES':'🇪🇸','NL':'🇳🇱','SE':'🇸🇪','SG':'🇸🇬'};
+
+async function lookupIP() {
+    const ip = document.getElementById('ipInput').value.trim();
+    if (!ip) { alert('Please enter an IP address'); return; }
+
+    const btn = document.getElementById('ipBtn');
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block"></div> Looking up...';
+
+    try {
+        const res = await fetch('/api/ip-lookup', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ip})
+        });
+        const data = await res.json();
+        btn.innerHTML = '<i class="bi bi-geo-alt"></i> Lookup';
+        if (data.error) { alert(data.error); return; }
+
+        document.getElementById('ipResults').classList.remove('hidden');
+
+        document.getElementById('countryFlag').textContent = countryFlags[data.country_code] || '🌍';
+        document.getElementById('ipCountry').textContent = data.country;
+        document.getElementById('ipCity').textContent = `${data.city}, ${data.region}`;
+
+        const riskColors = {safe: 'badge-safe', warning: 'badge-warning', info: 'badge-info'};
+        document.getElementById('ipRiskBadge').textContent = data.risk === 'safe' ? '✅ Clean' : data.risk === 'warning' ? '⚠ Hosting/VPN' : 'ℹ Private IP';
+        document.getElementById('ipRiskBadge').className = 'badge ' + (riskColors[data.risk] || 'badge-info');
+        document.getElementById('ipRiskNote').textContent = data.risk_note;
+
+        document.getElementById('ipDetails').innerHTML = `
+            <div class="d-flex justify-between"><span class="text-dim">IP Address</span><span style="color:var(--accent-cyan);font-family:var(--font-mono)">${data.ip}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">Country</span><span>${data.country}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">Region</span><span>${data.region}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">City</span><span>${data.city}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">ZIP Code</span><span>${data.zip}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">Timezone</span><span>${data.timezone}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">ISP</span><span>${data.isp}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">Organization</span><span>${data.org}</span></div>
+            <div class="d-flex justify-between"><span class="text-dim">Coordinates</span><span>${data.lat}, ${data.lon}</span></div>
+        `;
+
+    } catch(e) {
+        btn.innerHTML = '<i class="bi bi-geo-alt"></i> Lookup';
+        alert('Lookup failed: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

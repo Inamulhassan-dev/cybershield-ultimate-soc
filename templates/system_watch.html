@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title_extra %}- System Watch{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-cpu-fill"></i> System Watch</h1>
+    <p class="page-subtitle">See all programs running on your computer and check for suspicious activity</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Click <strong>"Refresh"</strong> to see all running programs. Red-highlighted rows are suspicious. You can search by name or stop any program with the <strong>"Kill"</strong> button.</span>
+</div>
+
+<!-- System Stats -->
+<div class="stats-grid mb-3">
+    <div class="cyber-card">
+        <div class="card-header"><div class="card-icon cyan"><i class="bi bi-cpu"></i></div></div>
+        <div class="card-value" id="sysCpu">---%</div>
+        <div class="card-label">CPU Usage</div>
+    </div>
+    <div class="cyber-card">
+        <div class="card-header"><div class="card-icon yellow"><i class="bi bi-memory"></i></div></div>
+        <div class="card-value" id="sysMem">---%</div>
+        <div class="card-label">Memory Usage</div>
+    </div>
+    <div class="cyber-card">
+        <div class="card-header"><div class="card-icon green"><i class="bi bi-hdd-fill"></i></div></div>
+        <div class="card-value" id="sysDisk">---%</div>
+        <div class="card-label">Disk Usage</div>
+    </div>
+    <div class="cyber-card">
+        <div class="card-header"><div class="card-icon red"><i class="bi bi-bug-fill"></i></div></div>
+        <div class="card-value" id="suspCount">0</div>
+        <div class="card-label">Suspicious</div>
+    </div>
+</div>
+
+<!-- Process Table -->
+<div class="cyber-card">
+    <div class="card-header">
+        <span class="card-title">Running Programs</span>
+        <div class="d-flex gap-2 align-center">
+            <input type="text" class="cyber-input" id="processFilter" placeholder="Filter processes..." style="width:200px;padding:6px 12px;font-size:12px">
+            <button class="btn-cyber btn-sm" onclick="loadProcesses()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            </button>
+        </div>
+    </div>
+    <div style="overflow-x:auto;max-height:450px;overflow-y:auto">
+        <table class="cyber-table" id="processTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Program Name</th>
+                    <th>CPU %</th>
+                    <th>Memory %</th>
+                    <th>Status</th>
+                    <th>User</th>
+                    <th>Warning</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="processBody">
+                <tr>
+                    <td colspan="8" style="text-align:center;padding:32px">
+                        <div class="spinner"></div>
+                        <div class="text-dim mt-2" style="font-size:12px">Loading processes...</div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allProcesses = [];
+
+async function loadSystemInfo() {
+    try {
+        const res = await fetch('/api/system-info');
+        const data = await res.json();
+        document.getElementById('sysCpu').textContent = data.cpu_percent?.toFixed(1) + '%';
+        document.getElementById('sysMem').textContent = data.memory_percent?.toFixed(1) + '%';
+        document.getElementById('sysDisk').textContent = data.disk_percent?.toFixed(1) + '%';
+    } catch(e) { console.error('System info error:', e); }
+}
+
+async function loadProcesses() {
+    const tbody = document.getElementById('processBody');
+    try {
+        const res = await fetch('/api/processes');
+        const data = await res.json();
+        allProcesses = data.processes || [];
+        renderProcesses(allProcesses);
+    } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-red" style="text-align:center;padding:24px">Failed to load processes</td></tr>';
+    }
+}
+
+function renderProcesses(processes) {
+    const tbody = document.getElementById('processBody');
+    let suspCount = 0;
+
+    let html = '';
+    processes.slice(0, 100).forEach(p => {
+        if (p.is_suspicious) suspCount++;
+
+        html += `<tr class="${p.is_suspicious ? 'suspicious' : ''}">
+            <td>${p.pid}</td>
+            <td style="font-weight:${p.is_suspicious ? '600' : '400'};color:${p.is_suspicious ? 'var(--accent-red)' : 'inherit'}">${p.name}</td>
+            <td><span class="${p.cpu_percent > 50 ? 'text-red' : p.cpu_percent > 20 ? 'text-yellow' : ''}">${p.cpu_percent}%</span></td>
+            <td><span class="${p.memory_percent > 50 ? 'text-red' : p.memory_percent > 20 ? 'text-yellow' : ''}">${p.memory_percent}%</span></td>
+            <td><span class="badge ${p.status === 'running' ? 'badge-safe' : 'badge-info'}">${p.status}</span></td>
+            <td class="text-dim">${p.username || 'N/A'}</td>
+            <td>${p.is_suspicious
+                ? '<span class="badge badge-danger">' + (p.threat_reason || 'Suspicious') + '</span>'
+                : '<span class="text-dim">—</span>'}</td>
+            <td>
+                <button class="btn-cyber btn-sm btn-danger" onclick="killProcess(${p.pid}, '${p.name.replace(/'/g, "\\'")}')">
+                    <i class="bi bi-x-circle"></i> Kill
+                </button>
+            </td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = html || '<tr><td colspan="8" class="text-dim" style="text-align:center;padding:24px">No processes found</td></tr>';
+    document.getElementById('suspCount').textContent = suspCount;
+}
+
+async function killProcess(pid, name) {
+    if (!confirm(`Terminate process "${name}" (PID: ${pid})?`)) return;
+
+    try {
+        const res = await fetch('/api/kill-process', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({pid})
+        });
+        const data = await res.json();
+        alert(data.message);
+        loadProcesses();
+    } catch(e) {
+        alert('Failed to kill process: ' + e.message);
+    }
+}
+
+// Filter
+document.getElementById('processFilter').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    const filtered = allProcesses.filter(p =>
+        p.name.toLowerCase().includes(q) || String(p.pid).includes(q)
+    );
+    renderProcesses(filtered);
+});
+
+loadSystemInfo();
+loadProcesses();
+setInterval(loadSystemInfo, 5000);
+setInterval(loadProcesses, 10000);
+</script>
+{% endblock %}

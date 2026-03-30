@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title_extra %}- Leak Checker{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-shield-lock-fill"></i> Dark Web Leak Checker</h1>
+    <p class="page-subtitle">Check if your email or password has been exposed in a data breach</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Enter your email address and click <strong>"Check Now"</strong>. We'll check if it appeared in any known data breaches.</span>
+</div>
+
+<div class="cyber-card mb-3">
+    <div class="card-header"><span class="card-title">Enter Your Email</span></div>
+    <div class="d-flex gap-2">
+        <input type="email" class="cyber-input" id="emailInput" placeholder="your.email@example.com" style="flex:1">
+        <button class="btn-cyber" onclick="checkLeak()" id="leakBtn"><i class="bi bi-search"></i> Check Now</button>
+    </div>
+</div>
+
+<div id="leakResults" class="hidden">
+    <div class="result-card mb-3" id="leakVerdictCard">
+        <div style="display:flex;align-items:center;gap:20px">
+            <div id="leakIcon" style="font-size:48px">🛡️</div>
+            <div>
+                <div class="result-verdict" id="leakVerdict">---</div>
+                <div class="text-dim" style="margin-top:4px" id="leakDetail">---</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cyber-card" id="breachesCard">
+        <div class="card-header">
+            <span class="card-title">Breaches Found</span>
+            <span class="badge badge-danger" id="breachCount">0</span>
+        </div>
+        <div id="breachesList"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function checkLeak() {
+    const email = document.getElementById('emailInput').value.trim();
+    if (!email || !email.includes('@')) { alert('Please enter a valid email'); return; }
+
+    const btn = document.getElementById('leakBtn');
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block"></div> Checking...';
+
+    try {
+        const res = await fetch('/api/check-leak', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email})
+        });
+        const data = await res.json();
+        btn.innerHTML = '<i class="bi bi-search"></i> Check Again';
+
+        document.getElementById('leakResults').classList.remove('hidden');
+
+        if (data.breached) {
+            document.getElementById('leakIcon').textContent = '⚠️';
+            document.getElementById('leakVerdict').textContent = 'Exposed!';
+            document.getElementById('leakVerdict').className = 'result-verdict danger';
+            document.getElementById('leakVerdictCard').className = 'result-card danger';
+            document.getElementById('leakDetail').textContent = `Found in ${data.breach_count} data breach(es). Change your passwords immediately!`;
+        } else {
+            document.getElementById('leakIcon').textContent = '✅';
+            document.getElementById('leakVerdict').textContent = 'No Leaks Found';
+            document.getElementById('leakVerdict').className = 'result-verdict safe';
+            document.getElementById('leakVerdictCard').className = 'result-card safe';
+            document.getElementById('leakDetail').textContent = 'Your email was not found in any known data breaches.';
+        }
+
+        document.getElementById('breachCount').textContent = data.breach_count;
+        const list = document.getElementById('breachesList');
+        if (data.breaches && data.breaches.length > 0) {
+            document.getElementById('breachesCard').classList.remove('hidden');
+            list.innerHTML = data.breaches.map(b => `
+                <div class="vuln-card">
+                    <div class="vuln-header">
+                        <div><div class="vuln-name">${b.name}</div></div>
+                        <span class="badge badge-danger">${b.date}</span>
+                    </div>
+                    <div class="vuln-desc">Leaked data: ${(b.data_types || []).join(', ')}</div>
+                </div>
+            `).join('');
+        } else {
+            document.getElementById('breachesCard').classList.add('hidden');
+        }
+
+        if (data.source) {
+            document.getElementById('leakDetail').textContent += ` (Source: ${data.source})`;
+        }
+
+    } catch(e) {
+        btn.innerHTML = '<i class="bi bi-search"></i> Check Now';
+        alert('Check failed: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title_extra %}- Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Welcome to CyberShield</h1>
+    <p class="page-subtitle">Your security overview — everything is monitored from here</p>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="cyber-card">
+        <div class="card-header">
+            <div class="card-icon cyan"><i class="bi bi-shield-check"></i></div>
+        </div>
+        <div class="card-value" id="totalScans">---</div>
+        <div class="card-label">Total Scans</div>
+    </div>
+    <div class="cyber-card">
+        <div class="card-header">
+            <div class="card-icon red"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        </div>
+        <div class="card-value" id="threatsBlocked">---</div>
+        <div class="card-label">Threats Blocked</div>
+    </div>
+    <div class="cyber-card">
+        <div class="card-header">
+            <div class="card-icon green"><i class="bi bi-heart-pulse-fill"></i></div>
+        </div>
+        <div class="card-value" id="systemHealth">---%</div>
+        <div class="card-label">System Health</div>
+    </div>
+    <div class="cyber-card">
+        <div class="card-header">
+            <div class="card-icon yellow"><i class="bi bi-wifi"></i></div>
+        </div>
+        <div class="card-value" id="activeConnections">---</div>
+        <div class="card-label">Active Connections</div>
+    </div>
+</div>
+
+<!-- Recent Traffic Analysis -->
+<div class="cyber-card mb-3">
+    <div class="card-header">
+        <span class="card-title">Recent Network Activity</span>
+        <button class="btn-cyber btn-sm" onclick="refreshTraffic()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+    </div>
+    <div class="text-dim" style="padding:4px 16px 0;font-size:12px">Shows what's happening on your network right now — green rows are safe, red rows are threats</div>
+    </div>
+    <div style="overflow-x:auto">
+        <table class="cyber-table" id="trafficTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Source IP</th>
+                    <th>Dest IP</th>
+                    <th>Protocol</th>
+                    <th>Classification</th>
+                    <th>Confidence</th>
+                </tr>
+            </thead>
+            <tbody id="trafficBody">
+                <tr>
+                    <td colspan="6" style="text-align:center;padding:24px">
+                        <div class="spinner"></div>
+                        <div class="text-dim mt-2" style="font-size:12px">Loading traffic data...</div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Threat Map Preview -->
+<div class="grid-2">
+    <div class="cyber-card">
+        <div class="card-header">
+            <span class="card-title">Attacks Coming From</span>
+        </div>
+        <div id="threatMapList" style="max-height:200px;overflow-y:auto">
+            <div class="text-dim text-mono" style="font-size:12px;padding:16px;text-align:center">Loading data...</div>
+        </div>
+    </div>
+    <div class="cyber-card">
+        <div class="card-header">
+            <span class="card-title">Try These Tools</span>
+        </div>
+        <div style="display:grid;gap:10px">
+            <a href="/network-shield" class="btn-cyber" style="justify-content:center">
+                <i class="bi bi-diagram-3"></i> Scan Network Traffic
+            </a>
+            <a href="/file-guard" class="btn-cyber" style="justify-content:center">
+                <i class="bi bi-file-earmark-lock2"></i> Check a File for Viruses
+            </a>
+            <a href="/link-scanner" class="btn-cyber" style="justify-content:center">
+                <i class="bi bi-link-45deg"></i> Check if a Link is Safe
+            </a>
+            <a href="/system-watch" class="btn-cyber" style="justify-content:center">
+                <i class="bi bi-cpu"></i> See Running Programs
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadDashboard() {
+    try {
+        const res = await fetch('/api/analytics');
+        const data = await res.json();
+
+        document.getElementById('totalScans').textContent = data.total_scans?.toLocaleString() || '---';
+        document.getElementById('threatsBlocked').textContent = data.threats_blocked?.toLocaleString() || '---';
+        document.getElementById('systemHealth').textContent = (data.system_health || '--') + '%';
+        document.getElementById('activeConnections').textContent = data.active_connections?.toLocaleString() || '---';
+    } catch(e) {
+        console.error('Dashboard load error:', e);
+    }
+}
+
+async function refreshTraffic() {
+    const tbody = document.getElementById('trafficBody');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px"><div class="spinner"></div></td></tr>';
+
+    try {
+        const res = await fetch('/api/traffic-data');
+        const data = await res.json();
+        let html = '';
+
+        (data.traffic || []).forEach(t => {
+            const isAttack = t.is_threat || (t.label && t.label !== 'Normal');
+            const label = t.label || t.actual_label || 'Unknown';
+            const conf = t.confidence ? t.confidence.toFixed(1) + '%' : 'N/A';
+
+            html += `<tr class="${isAttack ? 'suspicious' : ''}">
+                <td>${t.timestamp || '--'}</td>
+                <td>${t.src_ip || '--'}</td>
+                <td>${t.dst_ip || '--'}</td>
+                <td>${t.protocol || '--'}</td>
+                <td><span class="badge ${isAttack ? 'badge-danger' : 'badge-safe'}">${label}</span></td>
+                <td>${conf}</td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = html || '<tr><td colspan="6" class="text-dim" style="text-align:center;padding:24px">No data available</td></tr>';
+    } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-red" style="text-align:center;padding:24px">Error loading traffic data</td></tr>';
+    }
+}
+
+async function loadThreats() {
+    try {
+        const res = await fetch('/api/threat-map');
+        const data = await res.json();
+        const container = document.getElementById('threatMapList');
+
+        let html = '';
+        (data.threats || []).forEach(t => {
+            const sevClass = t.severity === 'Critical' ? 'badge-critical' :
+                             t.severity === 'High' ? 'badge-danger' :
+                             t.severity === 'Medium' ? 'badge-warning' : 'badge-info';
+
+            html += `<div class="finding-item">
+                <div class="finding-icon ${t.severity === 'Critical' || t.severity === 'High' ? 'critical' : 'warning'}">
+                    <i class="bi bi-geo-alt-fill"></i>
+                </div>
+                <div>
+                    <div style="font-family:var(--font-body);font-weight:600;color:#fff;font-size:14px">${t.country}</div>
+                    <div class="text-mono" style="font-size:11px;color:var(--text-dim)">${t.ip} • ${t.attack_type}</div>
+                </div>
+                <span class="badge ${sevClass}" style="margin-left:auto">${t.severity}</span>
+            </div>`;
+        });
+
+        container.innerHTML = html || '<div class="text-dim text-mono" style="padding:16px;text-align:center">No active threats</div>';
+    } catch(e) {
+        console.error('Threat map error:', e);
+    }
+}
+
+loadDashboard();
+refreshTraffic();
+loadThreats();
+
+setInterval(loadDashboard, 15000);
+setInterval(refreshTraffic, 10000);
+setInterval(loadThreats, 20000);
+</script>
+{% endblock %}

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CyberShield Ultimate - AI-Powered Cyber Security Operations Center">
+    <title>CyberShield Ultimate {% block title_extra %}{% endblock %}</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="app-wrapper">
+        <!-- ═══ Header ═══ -->
+        <header class="app-header">
+            <div class="header-logo">
+                <div class="logo-icon">
+                    <i class="bi bi-shield-lock-fill"></i>
+                </div>
+                <div>
+                    <div class="logo-text">CyberShield</div>
+                    <div class="logo-sub">Operations Center</div>
+                </div>
+            </div>
+
+            <div class="header-status">
+                <div class="status-badge secure" id="systemStatusBadge">
+                    <span class="status-dot green" id="statusDot"></span>
+                    <span id="statusText">SYSTEM SECURE</span>
+                </div>
+                <div class="threat-level">
+                    <span>THREAT</span>
+                    <div class="threat-level-bar">
+                        <div class="threat-level-fill low" id="threatLevelFill"></div>
+                    </div>
+                    <span id="threatLevelText">LOW</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ═══ Sidebar ═══ -->
+        <nav class="app-sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-label">Main</div>
+                <a href="/" class="nav-link {% if active == 'dashboard' %}active{% endif %}" id="nav-dashboard">
+                    <span class="nav-icon"><i class="bi bi-grid-1x2-fill"></i></span>
+                    <div><div>Dashboard</div><div class="nav-desc">Overview & stats</div></div>
+                </a>
+                <a href="/report-generator" class="nav-link {% if active == 'report' %}active{% endif %}" id="nav-report">
+                    <span class="nav-icon"><i class="bi bi-file-earmark-pdf-fill"></i></span>
+                    <div><div>Report</div><div class="nav-desc">Print security report</div></div>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-label">Scanners</div>
+                <a href="/network-shield" class="nav-link {% if active == 'network' %}active{% endif %}" id="nav-network">
+                    <span class="nav-icon"><i class="bi bi-diagram-3-fill"></i></span>
+                    <div><div>Network Shield</div><div class="nav-desc">Scan network traffic</div></div>
+                </a>
+                <a href="/file-guard" class="nav-link {% if active == 'fileguard' %}active{% endif %}" id="nav-fileguard">
+                    <span class="nav-icon"><i class="bi bi-file-earmark-lock2-fill"></i></span>
+                    <div><div>File Guard</div><div class="nav-desc">Check files for viruses</div></div>
+                </a>
+                <a href="/link-scanner" class="nav-link {% if active == 'linkscanner' %}active{% endif %}" id="nav-linkscanner">
+                    <span class="nav-icon"><i class="bi bi-link-45deg"></i></span>
+                    <div><div>Link Scanner</div><div class="nav-desc">Check if a link is safe</div></div>
+                </a>
+                <a href="/system-watch" class="nav-link {% if active == 'systemwatch' %}active{% endif %}" id="nav-systemwatch">
+                    <span class="nav-icon"><i class="bi bi-cpu-fill"></i></span>
+                    <div><div>System Watch</div><div class="nav-desc">Monitor running apps</div></div>
+                </a>
+                <a href="/port-scanner" class="nav-link {% if active == 'portscan' %}active{% endif %}" id="nav-portscan">
+                    <span class="nav-icon"><i class="bi bi-door-open-fill"></i></span>
+                    <div><div>Port Scanner</div><div class="nav-desc">Find open ports</div></div>
+                </a>
+                <a href="/wifi-scanner" class="nav-link {% if active == 'wifi' %}active{% endif %}" id="nav-wifi">
+                    <span class="nav-icon"><i class="bi bi-wifi"></i></span>
+                    <div><div>Wi-Fi Scanner</div><div class="nav-desc">Check Wi-Fi security</div></div>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-label">Tools</div>
+                <a href="/password-checker" class="nav-link {% if active == 'password' %}active{% endif %}" id="nav-password">
+                    <span class="nav-icon"><i class="bi bi-key-fill"></i></span>
+                    <div><div>Password Checker</div><div class="nav-desc">Test password strength</div></div>
+                </a>
+                <a href="/email-analyzer" class="nav-link {% if active == 'email' %}active{% endif %}" id="nav-email">
+                    <span class="nav-icon"><i class="bi bi-envelope-exclamation-fill"></i></span>
+                    <div><div>Email Analyzer</div><div class="nav-desc">Detect phishing emails</div></div>
+                </a>
+                <a href="/app-vetter" class="nav-link {% if active == 'appvetter' %}active{% endif %}" id="nav-appvetter">
+                    <span class="nav-icon"><i class="bi bi-code-slash"></i></span>
+                    <div><div>App Vetter</div><div class="nav-desc">Find bugs in code</div></div>
+                </a>
+                <a href="/leak-checker" class="nav-link {% if active == 'leak' %}active{% endif %}" id="nav-leak">
+                    <span class="nav-icon"><i class="bi bi-shield-lock-fill"></i></span>
+                    <div><div>Leak Checker</div><div class="nav-desc">Check for data breaches</div></div>
+                </a>
+                <a href="/ip-lookup" class="nav-link {% if active == 'iplookup' %}active{% endif %}" id="nav-iplookup">
+                    <span class="nav-icon"><i class="bi bi-geo-alt-fill"></i></span>
+                    <div><div>IP Lookup</div><div class="nav-desc">Find IP location</div></div>
+                </a>
+                <a href="/encryption-tool" class="nav-link {% if active == 'encrypt' %}active{% endif %}" id="nav-encrypt">
+                    <span class="nav-icon"><i class="bi bi-lock-fill"></i></span>
+                    <div><div>Encryption</div><div class="nav-desc">Encrypt/decrypt text</div></div>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-label">System</div>
+                <div style="padding: 12px 16px; margin: 2px 8px;">
+                    <div class="d-flex justify-between mb-1">
+                        <span class="text-dim text-mono" style="font-size:11px">CPU</span>
+                        <span class="text-cyan text-mono" style="font-size:11px" id="sidebarCpu">---%</span>
+                    </div>
+                    <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden">
+                        <div id="cpuBar" style="height:100%;width:0%;background:var(--accent-cyan);border-radius:2px;transition:width 0.5s"></div>
+                    </div>
+                </div>
+                <div style="padding: 4px 16px 12px; margin: 2px 8px;">
+                    <div class="d-flex justify-between mb-1">
+                        <span class="text-dim text-mono" style="font-size:11px">MEMORY</span>
+                        <span class="text-cyan text-mono" style="font-size:11px" id="sidebarMem">---%</span>
+                    </div>
+                    <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden">
+                        <div id="memBar" style="height:100%;width:0%;background:var(--accent-purple);border-radius:2px;transition:width 0.5s"></div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- ═══ Main Content ═══ -->
+        <main class="app-main">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- ═══ Right Panel ═══ -->
+        <aside class="app-right-panel">
+            <div class="right-panel-header">
+                <i class="bi bi-activity"></i>
+                Activity Log
+            </div>
+            <div class="log-feed" id="logFeed">
+                <div class="log-entry info">
+                    <span class="log-time">--:--:--</span>
+                    <span>Starting up...</span>
+                </div>
+            </div>
+            <div class="terminal-section">
+                <div class="terminal-header">
+                    <i class="bi bi-terminal-fill"></i>
+                    Quick Commands
+                </div>
+                <div class="terminal-body" id="terminalBody">
+                    <div>> CyberShield is ready!</div>
+                    <div>> All systems are running.</div>
+                    <div>> Type <b style="color:var(--accent-cyan)">help</b> to see what you can do</div>
+                </div>
+                <div class="terminal-input">
+                    <span>$&gt;</span>
+                    <input type="text" id="terminalInput" placeholder="Type a command here..." autocomplete="off">
+                </div>
+            </div>
+        </aside>
+
+        <!-- ═══ Footer / Analytics ═══ -->
+        <footer class="app-footer">
+            <div class="chart-container">
+                <div class="chart-title">Network Traffic Analysis</div>
+                <canvas id="trafficChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Attack Distribution</div>
+                <canvas id="attackPieChart"></canvas>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

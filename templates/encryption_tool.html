@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title_extra %}- Encryption Tool{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-lock-fill"></i> Encryption Tool</h1>
+    <p class="page-subtitle">Encrypt and decrypt text using military-grade AES-256 encryption</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Type your secret message, enter a password, and click <strong>"Encrypt"</strong>. Share the encrypted text safely — only someone with the same password can decrypt it.</span>
+</div>
+
+<div class="grid-2">
+    <!-- Encrypt -->
+    <div class="cyber-card">
+        <div class="card-header"><span class="card-title">🔒 Encrypt</span></div>
+        <textarea class="cyber-input" id="plainInput" rows="5" placeholder="Type your secret message here..."></textarea>
+        <div style="margin-top:10px">
+            <input type="text" class="cyber-input" id="encPassword" placeholder="Enter a password (min 4 characters)">
+        </div>
+        <div style="margin-top:10px;text-align:right">
+            <button class="btn-cyber" onclick="encryptText()"><i class="bi bi-lock-fill"></i> Encrypt</button>
+        </div>
+        <div id="encResult" class="hidden" style="margin-top:16px">
+            <div class="text-mono text-dim" style="font-size:10px;margin-bottom:6px">ENCRYPTED OUTPUT (copy this)</div>
+            <div style="background:rgba(0,0,0,0.3);padding:12px;border-radius:var(--radius);border:1px solid var(--border-color);word-break:break-all">
+                <code style="color:var(--accent-green);font-size:12px" id="encOutput"></code>
+            </div>
+            <button class="btn-cyber btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('encOutput').textContent)" style="margin-top:8px">
+                <i class="bi bi-clipboard"></i> Copy
+            </button>
+            <div class="text-dim text-mono" style="font-size:10px;margin-top:8px" id="encInfo"></div>
+        </div>
+    </div>
+
+    <!-- Decrypt -->
+    <div class="cyber-card">
+        <div class="card-header"><span class="card-title">🔓 Decrypt</span></div>
+        <textarea class="cyber-input" id="cipherInput" rows="5" placeholder="Paste encrypted text here..."></textarea>
+        <div style="margin-top:10px">
+            <input type="text" class="cyber-input" id="decPassword" placeholder="Enter the password used to encrypt">
+        </div>
+        <div style="margin-top:10px;text-align:right">
+            <button class="btn-cyber" onclick="decryptText()"><i class="bi bi-unlock-fill"></i> Decrypt</button>
+        </div>
+        <div id="decResult" class="hidden" style="margin-top:16px">
+            <div class="text-mono text-dim" style="font-size:10px;margin-bottom:6px">DECRYPTED MESSAGE</div>
+            <div style="background:rgba(0,0,0,0.3);padding:12px;border-radius:var(--radius);border:1px solid var(--border-color)">
+                <span style="color:var(--accent-cyan);font-size:14px" id="decOutput"></span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function encryptText() {
+    const text = document.getElementById('plainInput').value.trim();
+    const pw = document.getElementById('encPassword').value;
+    if (!text) { alert('Enter text to encrypt'); return; }
+    if (!pw || pw.length < 4) { alert('Password must be at least 4 characters'); return; }
+
+    try {
+        const res = await fetch('/api/encrypt', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text, password: pw})
+        });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+
+        document.getElementById('encResult').classList.remove('hidden');
+        document.getElementById('encOutput').textContent = data.encrypted;
+        document.getElementById('encInfo').textContent = `Algorithm: ${data.algorithm} | Key: ${data.key_derivation}`;
+    } catch(e) { alert('Encryption failed: ' + e.message); }
+}
+
+async function decryptText() {
+    const text = document.getElementById('cipherInput').value.trim();
+    const pw = document.getElementById('decPassword').value;
+    if (!text) { alert('Paste encrypted text first'); return; }
+    if (!pw) { alert('Enter the password'); return; }
+
+    try {
+        const res = await fetch('/api/decrypt', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text, password: pw})
+        });
+        const data = await res.json();
+        if (data.error) { alert(data.error); return; }
+
+        document.getElementById('decResult').classList.remove('hidden');
+        document.getElementById('decOutput').textContent = data.decrypted;
+    } catch(e) { alert('Decryption failed: ' + e.message); }
+}
+</script>
+{% endblock %}

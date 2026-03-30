@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title_extra %}- Network Shield{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-diagram-3-fill"></i> Network Shield</h1>
+    <p class="page-subtitle">See what's happening on your network — our AI detects attacks automatically</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Watch the network map below, then click <strong>"Classify Now"</strong> to let the AI scan your traffic and find threats.</span>
+</div>
+
+<!-- Network Topology -->
+<div class="grid-2 mb-3">
+    <div class="topology-container">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border-color)">
+            <span class="card-title">Live Network Map</span>
+        </div>
+        <canvas id="topologyCanvas" class="topology-canvas"></canvas>
+    </div>
+    <div class="radar-container" style="flex-direction:column">
+        <div class="card-title mb-2">Threat Scanner</div>
+        <canvas id="radarCanvas" class="radar-canvas"></canvas>
+    </div>
+</div>
+
+<!-- Traffic Classification -->
+<div class="cyber-card mb-3">
+    <div class="card-header">
+        <span class="card-title">Traffic Scan Results</span>
+        <div class="d-flex gap-2 align-center">
+            <span class="badge badge-safe" id="normalCount">Normal: 0</span>
+            <span class="badge badge-danger" id="threatCount">Threats: 0</span>
+            <button class="btn-cyber btn-sm" onclick="classifyTraffic()">
+                <i class="bi bi-lightning-fill"></i> Classify Now
+            </button>
+        </div>
+    </div>
+    <div style="overflow-x:auto">
+        <table class="cyber-table" id="classifyTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Source</th>
+                    <th>Destination</th>
+                    <th>Protocol</th>
+                    <th>Service</th>
+                    <th>Classification</th>
+                    <th>Confidence</th>
+                </tr>
+            </thead>
+            <tbody id="classifyBody">
+                <tr>
+                    <td colspan="7" class="text-dim" style="text-align:center;padding:32px">
+                        👆 Click <b>"Classify Now"</b> above to scan your network traffic
+                    </td>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Threat Origins -->
+<div class="cyber-card">
+    <div class="card-header">
+        <span class="card-title">Where Attacks Are Coming From</span>
+        <button class="btn-cyber btn-sm" onclick="loadThreats()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+    </div>
+    <div id="threatList" style="max-height:300px;overflow-y:auto">
+        <div class="text-dim text-mono" style="padding:24px;text-align:center">Loading threat intelligence data...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/network_v5.js') }}"></script>
+<script>
+async function classifyTraffic() {
+    const tbody = document.getElementById('classifyBody');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px"><div class="spinner"></div><div class="scanning-text" style="margin-top:8px">ANALYZING TRAFFIC</div></td></tr>';
+
+    try {
+        const res = await fetch('/api/traffic-data');
+        const data = await res.json();
+        let html = '';
+        let normalCount = 0, threatCount = 0;
+
+        (data.traffic || []).forEach(t => {
+            const isAttack = t.is_threat || (t.label && t.label !== 'Normal');
+            const label = t.label || t.actual_label || 'Unknown';
+            const conf = t.confidence ? t.confidence.toFixed(1) + '%' : 'N/A';
+
+            if (isAttack) threatCount++; else normalCount++;
+
+            html += `<tr class="${isAttack ? 'suspicious' : ''}">
+                <td>${t.timestamp || '--'}</td>
+                <td>${t.src_ip || '--'}</td>
+                <td>${t.dst_ip || '--'}</td>
+                <td>${t.protocol || '--'}</td>
+                <td>${t.service || '--'}</td>
+                <td><span class="badge ${isAttack ? 'badge-danger' : 'badge-safe'}">${label}</span></td>
+                <td><span class="${isAttack ? 'text-red' : 'text-green'}">${conf}</span></td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = html || '<tr><td colspan="7" class="text-dim" style="text-align:center">No data</td></tr>';
+        document.getElementById('normalCount').textContent = `Normal: ${normalCount}`;
+        document.getElementById('threatCount').textContent = `Threats: ${threatCount}`;
+        
+        // Feed real data to the visual radar
+        if (window.updateRadarBlips) {
+            window.updateRadarBlips(data.traffic);
+        }
+        
+    } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-red" style="text-align:center;padding:24px">Classification failed</td></tr>';
+    }
+}
+
+async function loadThreats() {
+    const container = document.getElementById('threatList');
+    try {
+        const res = await fetch('/api/threat-map');
+        const data = await res.json();
+        let html = '';
+
+        (data.threats || []).forEach(t => {
+            const sevClass = t.severity === 'Critical' ? 'badge-critical' :
+                             t.severity === 'High' ? 'badge-danger' :
+                             t.severity === 'Medium' ? 'badge-warning' : 'badge-info';
+
+            html += `<div class="finding-item">
+                <div class="finding-icon ${t.severity === 'Critical' || t.severity === 'High' ? 'critical' : 'warning'}">
+                    <i class="bi bi-geo-alt-fill"></i>
+                </div>
+                <div style="flex:1">
+                    <div style="font-family:var(--font-body);font-weight:600;color:#fff;font-size:14px">
+                        ${t.country} <span class="text-dim text-mono" style="font-size:11px">• ${t.ip}</span>
+                    </div>
+                    <div class="text-mono" style="font-size:11px;color:var(--text-secondary)">${t.attack_type} • ${t.timestamp}</div>
+                </div>
+                <span class="badge ${sevClass}">${t.severity}</span>
+            </div>`;
+        });
+
+        container.innerHTML = html || '<div class="text-dim text-mono" style="padding:24px;text-align:center">No active threats</div>';
+    } catch(e) {
+        container.innerHTML = '<div class="text-red text-mono" style="padding:24px;text-align:center">Failed to load threat data</div>';
+    }
+}
+
+loadThreats();
+setInterval(loadThreats, 20000);
+
+// Kick off an initial scan so the radar populates immediately
+classifyTraffic();
+// Continue scanning every 10 seconds to keep live data flowing to the radar
+setInterval(classifyTraffic, 10000);
+</script>
+{% endblock %}

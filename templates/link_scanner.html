@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title_extra %}- Link Scanner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-link-45deg"></i> Link Scanner</h1>
+    <p class="page-subtitle">Paste any website link to check if it's safe or a phishing scam</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Paste a URL in the box below and click <strong>"Scan"</strong>, or try the sample buttons to see how phishing links are detected.</span>
+</div>
+
+<!-- URL Input -->
+<div class="cyber-card mb-3">
+    <div class="card-header">
+        <span class="card-title">Enter a Link to Check</span>
+    </div>
+    <form onsubmit="scanUrl(event)" id="urlForm">
+        <div class="d-flex gap-2">
+            <input type="text" class="cyber-input" id="urlInput" placeholder="Paste a link here (e.g. https://example.com)" style="flex:1">
+            <button type="submit" class="btn-cyber" id="scanBtn">
+                <i class="bi bi-search"></i> Scan
+            </button>
+        </div>
+    </form>
+
+    <!-- Quick Test URLs -->
+    <div style="margin-top:16px">
+        <div class="text-dim text-mono" style="font-size:10px;letter-spacing:2px;margin-bottom:8px">TRY THESE EXAMPLES</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-cyber btn-sm" onclick="testUrl('https://www.google.com')" style="font-size:9px">✅ Google (Safe)</button>
+            <button class="btn-cyber btn-sm btn-danger" onclick="testUrl('http://paypa1-secure.login.verify.tk/account')" style="font-size:9px">⚠️ Fake PayPal</button>
+            <button class="btn-cyber btn-sm btn-danger" onclick="testUrl('http://192.168.1.1/admin/login.php')" style="font-size:9px">⚠️ Suspicious IP</button>
+            <button class="btn-cyber btn-sm btn-danger" onclick="testUrl('http://amaz0n.secure-update.xyz/signin@verify')" style="font-size:9px">⚠️ Fake Amazon</button>
+            <button class="btn-cyber btn-sm" onclick="testUrl('https://github.com')" style="font-size:9px">✅ GitHub (Safe)</button>
+        </div>
+    </div>
+</div>
+
+<!-- Scanning State -->
+<div id="urlScanning" class="cyber-card mb-3 hidden">
+    <div class="scanning-animation">
+        <div class="spinner" style="width:48px;height:48px;border-width:3px"></div>
+        <div class="scanning-text">ANALYZING URL</div>
+        <div class="text-dim text-mono" style="font-size:12px;margin-top:8px">Checking domain • Analyzing patterns • Verifying SSL</div>
+    </div>
+</div>
+
+<!-- Results -->
+<div id="urlResults" class="hidden">
+    <div class="grid-2 mb-3">
+        <!-- Verdict -->
+        <div class="result-card" id="urlVerdictCard">
+            <div class="result-header">
+                <div>
+                    <div class="text-mono text-dim" style="font-size:11px;margin-bottom:4px">VERDICT</div>
+                    <div class="result-verdict" id="urlVerdict">---</div>
+                </div>
+                <div class="risk-meter">
+                    <svg width="120" height="120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                        <circle id="urlRiskCircle" cx="60" cy="60" r="50" fill="none" stroke="var(--accent-green)" stroke-width="8"
+                            stroke-dasharray="314" stroke-dashoffset="314" stroke-linecap="round"/>
+                    </svg>
+                    <div class="risk-meter-value" id="urlRiskScore">0</div>
+                    <div class="risk-meter-label">RISK</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- URL Info -->
+        <div class="cyber-card">
+            <div class="card-title mb-2">URL Details</div>
+            <div style="display:grid;gap:8px">
+                <div>
+                    <span class="text-dim text-mono" style="font-size:11px">ANALYZED URL</span>
+                    <div class="text-mono" style="font-size:12px;word-break:break-all;margin-top:4px;color:var(--accent-cyan)" id="resUrl">---</div>
+                </div>
+                <div class="d-flex justify-between">
+                    <span class="text-dim text-mono" style="font-size:12px">Hostname</span>
+                    <span class="text-mono" style="font-size:12px" id="resHostname">---</span>
+                </div>
+                <div class="d-flex justify-between">
+                    <span class="text-dim text-mono" style="font-size:12px">SSL/TLS</span>
+                    <span id="resSsl">---</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Findings -->
+    <div class="cyber-card">
+        <div class="card-header">
+            <span class="card-title">What We Found</span>
+            <span class="badge badge-info" id="urlFindingCount">0 findings</span>
+        </div>
+        <div id="urlFindingsList"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function testUrl(url) {
+    document.getElementById('urlInput').value = url;
+    document.getElementById('urlForm').dispatchEvent(new Event('submit'));
+}
+
+async function scanUrl(e) {
+    e.preventDefault();
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return;
+
+    document.getElementById('urlScanning').classList.remove('hidden');
+    document.getElementById('urlResults').classList.add('hidden');
+
+    try {
+        const res = await fetch('/api/scan-url', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url})
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        document.getElementById('urlScanning').classList.add('hidden');
+        document.getElementById('urlResults').classList.remove('hidden');
+
+        // Verdict
+        const verdict = data.verdict;
+        const verdictEl = document.getElementById('urlVerdict');
+        verdictEl.textContent = verdict;
+        verdictEl.className = 'result-verdict ' + (verdict === 'Safe' ? 'safe' : verdict === 'Suspicious' ? 'warning' : 'danger');
+
+        const card = document.getElementById('urlVerdictCard');
+        card.className = 'result-card ' + (verdict === 'Safe' ? 'safe' : verdict === 'Suspicious' ? 'warning' : 'danger');
+
+        // Risk meter
+        const score = data.risk_score;
+        document.getElementById('urlRiskScore').textContent = score;
+        const circle = document.getElementById('urlRiskCircle');
+        circle.style.strokeDashoffset = 314 - (314 * score / 100);
+        circle.style.stroke = score < 25 ? 'var(--accent-green)' : score < 50 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+        document.getElementById('urlRiskScore').style.color = score < 25 ? 'var(--accent-green)' : score < 50 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+
+        // URL info
+        document.getElementById('resUrl').textContent = data.url;
+        document.getElementById('resHostname').textContent = data.hostname;
+        document.getElementById('resSsl').innerHTML = data.ssl
+            ? '<span class="badge badge-safe"><i class="bi bi-lock-fill"></i> Encrypted</span>'
+            : '<span class="badge badge-warning"><i class="bi bi-unlock-fill"></i> Not Encrypted</span>';
+
+        // Findings
+        const findings = data.findings || [];
+        document.getElementById('urlFindingCount').textContent = `${findings.length} finding${findings.length !== 1 ? 's' : ''}`;
+
+        const list = document.getElementById('urlFindingsList');
+        list.innerHTML = findings.map(f => `
+            <div class="finding-item">
+                <div class="finding-icon ${f.type}">
+                    <i class="bi bi-${f.type === 'critical' ? 'exclamation-triangle-fill' : f.type === 'warning' ? 'exclamation-circle-fill' : 'info-circle-fill'}"></i>
+                </div>
+                <div class="finding-text">${f.message}</div>
+            </div>
+        `).join('');
+
+    } catch(e) {
+        document.getElementById('urlScanning').classList.add('hidden');
+        alert('Scan failed: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

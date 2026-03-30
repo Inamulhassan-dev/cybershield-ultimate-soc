@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title_extra %}- File Guard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-file-earmark-lock2-fill"></i> File Guard</h1>
+    <p class="page-subtitle">Upload any file to check if it contains viruses or harmful code</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Drag a file from your computer and drop it in the box below, or click the box to pick a file. We'll scan it instantly.</span>
+</div>
+
+<!-- Upload Zone -->
+<div class="cyber-card mb-3">
+    <div class="card-header">
+        <span class="card-title">Upload a File to Scan</span>
+    </div>
+    <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-icon"><i class="bi bi-cloud-arrow-up-fill"></i></div>
+        <div class="drop-zone-text">Drag &amp; Drop a file here or click to browse</div>
+        <div class="drop-zone-sub">Supported: All file types • Max 16MB</div>
+        <input type="file" id="fileInput" onchange="handleFileUpload(this.files[0])">
+    </div>
+</div>
+
+<!-- Scanning Animation -->
+<div id="scanningState" class="cyber-card mb-3 hidden">
+    <div class="scanning-animation">
+        <div class="spinner" style="width:48px;height:48px;border-width:3px"></div>
+        <div class="scanning-text">ANALYZING FILE</div>
+        <div class="text-dim text-mono" style="font-size:12px;margin-top:8px">Computing hash • Scanning patterns • Checking signatures</div>
+    </div>
+</div>
+
+<!-- Results -->
+<div id="scanResults" class="hidden">
+    <div class="grid-2 mb-3">
+        <!-- Verdict -->
+        <div class="result-card" id="verdictCard">
+            <div class="result-header">
+                <div>
+                    <div class="text-mono text-dim" style="font-size:11px;margin-bottom:4px">VERDICT</div>
+                    <div class="result-verdict" id="fileVerdict">---</div>
+                </div>
+                <div class="risk-meter" id="riskMeter">
+                    <svg width="120" height="120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                        <circle id="riskCircle" cx="60" cy="60" r="50" fill="none" stroke="var(--accent-green)" stroke-width="8"
+                            stroke-dasharray="314" stroke-dashoffset="314" stroke-linecap="round"/>
+                    </svg>
+                    <div class="risk-meter-value" id="riskScore">0</div>
+                    <div class="risk-meter-label">RISK</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Info -->
+        <div class="cyber-card">
+            <div class="card-title mb-2">File Information</div>
+            <div style="display:grid;gap:8px">
+                <div class="d-flex justify-between">
+                    <span class="text-dim text-mono" style="font-size:12px">Filename</span>
+                    <span class="text-mono" style="font-size:12px" id="resFilename">---</span>
+                </div>
+                <div class="d-flex justify-between">
+                    <span class="text-dim text-mono" style="font-size:12px">Type</span>
+                    <span class="text-mono" style="font-size:12px" id="resFileType">---</span>
+                </div>
+                <div class="d-flex justify-between">
+                    <span class="text-dim text-mono" style="font-size:12px">Size</span>
+                    <span class="text-mono" style="font-size:12px" id="resFileSize">---</span>
+                </div>
+                <div style="margin-top:8px">
+                    <div class="text-dim text-mono" style="font-size:11px;margin-bottom:4px">SHA-256 HASH</div>
+                    <div class="text-mono text-cyan" style="font-size:11px;word-break:break-all;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px" id="resHash">---</div>
+                </div>
+                <div>
+                    <div class="text-dim text-mono" style="font-size:11px;margin-bottom:4px">MD5 HASH</div>
+                    <div class="text-mono" style="font-size:11px;word-break:break-all;background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;color:var(--text-secondary)" id="resMd5">---</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Findings -->
+    <div class="cyber-card">
+        <div class="card-header">
+            <span class="card-title">What We Found</span>
+            <span class="badge badge-info" id="findingCount">0 findings</span>
+        </div>
+        <div id="findingsList"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/scanner.js') }}"></script>
+<script>
+// Drag & Drop
+const dropZone = document.getElementById('dropZone');
+
+dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('drag-over');
+});
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length > 0) {
+        handleFileUpload(e.dataTransfer.files[0]);
+    }
+});
+
+async function handleFileUpload(file) {
+    if (!file) return;
+
+    document.getElementById('scanningState').classList.remove('hidden');
+    document.getElementById('scanResults').classList.add('hidden');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch('/api/scan-file', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        // Show results
+        document.getElementById('scanningState').classList.add('hidden');
+        document.getElementById('scanResults').classList.remove('hidden');
+
+        // Verdict
+        const verdict = data.verdict;
+        const verdictEl = document.getElementById('fileVerdict');
+        verdictEl.textContent = verdict;
+        verdictEl.className = 'result-verdict ' + (verdict === 'Safe' ? 'safe' : verdict === 'Suspicious' ? 'warning' : 'danger');
+
+        const card = document.getElementById('verdictCard');
+        card.className = 'result-card ' + (verdict === 'Safe' ? 'safe' : verdict === 'Suspicious' ? 'warning' : 'danger');
+
+        // Risk meter
+        const score = data.risk_score;
+        document.getElementById('riskScore').textContent = score;
+        const circle = document.getElementById('riskCircle');
+        const offset = 314 - (314 * score / 100);
+        circle.style.strokeDashoffset = offset;
+        circle.style.stroke = score < 25 ? 'var(--accent-green)' : score < 50 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+
+        const meterVal = document.getElementById('riskScore');
+        meterVal.style.color = score < 25 ? 'var(--accent-green)' : score < 50 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+
+        // File info
+        document.getElementById('resFilename').textContent = data.filename;
+        document.getElementById('resFileType').textContent = data.file_type || 'unknown';
+        document.getElementById('resFileSize').textContent = formatBytes(data.file_size);
+        document.getElementById('resHash').textContent = data.sha256;
+        document.getElementById('resMd5').textContent = data.md5;
+
+        // Findings
+        const findingsEl = document.getElementById('findingsList');
+        const findings = data.findings || [];
+        document.getElementById('findingCount').textContent = `${findings.length} finding${findings.length !== 1 ? 's' : ''}`;
+
+        if (findings.length > 0) {
+            findingsEl.innerHTML = findings.map(f => `
+                <div class="finding-item">
+                    <div class="finding-icon ${f.type}">
+                        <i class="bi bi-${f.type === 'critical' ? 'exclamation-triangle-fill' : f.type === 'warning' ? 'exclamation-circle-fill' : 'info-circle-fill'}"></i>
+                    </div>
+                    <div class="finding-text">${f.message}</div>
+                </div>
+            `).join('');
+        } else {
+            findingsEl.innerHTML = '<div class="text-dim text-mono" style="padding:16px;text-align:center">No suspicious indicators found</div>';
+        }
+
+    } catch(e) {
+        document.getElementById('scanningState').classList.add('hidden');
+        alert('Scan failed: ' + e.message);
+    }
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+</script>
+{% endblock %}

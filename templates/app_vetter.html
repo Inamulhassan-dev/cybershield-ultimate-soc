@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title_extra %}- App Vetter{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-code-slash"></i> App Vetter</h1>
+    <p class="page-subtitle">Paste any code to find security problems like leaked passwords or unsafe functions</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Click <strong>"Load Sample"</strong> to load example code with hidden problems, then click <strong>"Run Security Scan"</strong> to see what our scanner finds.</span>
+</div>
+
+<!-- Code Input -->
+<div class="cyber-card mb-3">
+    <div class="card-header">
+        <span class="card-title">Paste Code Here</span>
+        <div class="d-flex gap-2">
+            <button class="btn-cyber btn-sm" onclick="loadSampleCode()">
+                <i class="bi bi-file-code"></i> 📋 Load Sample Code
+            </button>
+            <label class="btn-cyber btn-sm" style="cursor:pointer">
+                <i class="bi bi-upload"></i> Upload File
+                <input type="file" accept=".py,.js,.txt,.php,.java,.rb,.go" style="display:none" onchange="handleCodeFile(this.files[0])">
+            </label>
+        </div>
+    </div>
+    <textarea class="cyber-input" id="codeInput" rows="14" placeholder="Paste your code here for security analysis..."></textarea>
+    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <span class="text-dim text-mono" style="font-size:11px">
+            <span id="lineCount">0</span> lines
+        </span>
+        <button class="btn-cyber" onclick="scanCode()" id="scanCodeBtn">
+            <i class="bi bi-shield-exclamation"></i> Run Security Scan
+        </button>
+    </div>
+</div>
+
+<!-- Scanning State -->
+<div id="codeScanState" class="cyber-card mb-3 hidden">
+    <div class="scanning-animation">
+        <div class="spinner" style="width:48px;height:48px;border-width:3px"></div>
+        <div class="scanning-text">SCANNING CODE</div>
+        <div class="text-dim text-mono" style="font-size:12px;margin-top:8px">Checking patterns • Analyzing functions • Detecting vulnerabilities</div>
+    </div>
+</div>
+
+<!-- Results -->
+<div id="codeResults" class="hidden">
+    <!-- Summary -->
+    <div class="grid-3 mb-3">
+        <div class="result-card" id="codeVerdictCard">
+            <div class="text-mono text-dim" style="font-size:11px;margin-bottom:4px">VERDICT</div>
+            <div class="result-verdict" id="codeVerdict">---</div>
+            <div class="text-dim text-mono" style="font-size:11px;margin-top:8px"><span id="codeLinesScanned">0</span> lines scanned</div>
+        </div>
+        <div class="cyber-card" style="text-align:center">
+            <div class="text-dim text-mono" style="font-size:11px;margin-bottom:4px">RISK SCORE</div>
+            <div style="margin:12px 0">
+                <div class="risk-meter" style="margin:0 auto">
+                    <svg width="120" height="120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                        <circle id="codeRiskCircle" cx="60" cy="60" r="50" fill="none" stroke="var(--accent-green)" stroke-width="8"
+                            stroke-dasharray="314" stroke-dashoffset="314" stroke-linecap="round"/>
+                    </svg>
+                    <div class="risk-meter-value" id="codeRiskScore">0</div>
+                    <div class="risk-meter-label">RISK</div>
+                </div>
+            </div>
+        </div>
+        <div class="cyber-card">
+            <div class="text-dim text-mono" style="font-size:11px;margin-bottom:12px">SEVERITY BREAKDOWN</div>
+            <div id="severityCounts" style="display:grid;gap:8px"></div>
+        </div>
+    </div>
+
+    <!-- Vulnerability List -->
+    <div class="cyber-card">
+        <div class="card-header">
+            <span class="card-title">Security Problems Found</span>
+            <span class="badge badge-info" id="vulnCount">0 vulnerabilities</span>
+        </div>
+        <div id="vulnList"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Line counter
+document.getElementById('codeInput').addEventListener('input', function() {
+    const lines = this.value.split('\n').length;
+    document.getElementById('lineCount').textContent = lines;
+});
+
+function loadSampleCode() {
+    const sample = `import os
+import random
+import hashlib
+
+# Database connection with hardcoded credentials
+DB_PASSWORD = "admin123!"
+API_KEY = "sk-1234567890abcdef"
+
+def authenticate(username, password):
+    # Weak hashing
+    hashed = hashlib.md5(password.encode()).hexdigest()
+    query = f"SELECT * FROM users WHERE username='{username}' AND password='{hashed}'"
+    cursor.execute(query)
+    return cursor.fetchone()
+
+def run_command(cmd):
+    # Dangerous OS command execution
+    os.system(cmd)
+    result = eval(input("Enter expression: "))
+    return result
+
+def process_data(data):
+    import pickle
+    obj = pickle.loads(data)
+    return obj
+
+# Debug mode left enabled
+app.run(debug=True, host='0.0.0.0')`;
+
+    document.getElementById('codeInput').value = sample;
+    document.getElementById('lineCount').textContent = sample.split('\n').length;
+}
+
+function handleCodeFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('codeInput').value = e.target.result;
+        document.getElementById('lineCount').textContent = e.target.result.split('\n').length;
+    };
+    reader.readAsText(file);
+}
+
+async function scanCode() {
+    const code = document.getElementById('codeInput').value.trim();
+    if (!code) { alert('Please enter or paste code to scan.'); return; }
+
+    document.getElementById('codeScanState').classList.remove('hidden');
+    document.getElementById('codeResults').classList.add('hidden');
+
+    try {
+        const res = await fetch('/api/scan-code', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({code})
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        document.getElementById('codeScanState').classList.add('hidden');
+        document.getElementById('codeResults').classList.remove('hidden');
+
+        // Verdict
+        const verdict = data.verdict;
+        const el = document.getElementById('codeVerdict');
+        el.textContent = verdict;
+        el.className = 'result-verdict ' + (verdict === 'Clean' ? 'safe' : verdict === 'Low Risk' ? 'safe' : verdict === 'Medium Risk' ? 'warning' : 'danger');
+
+        const card = document.getElementById('codeVerdictCard');
+        card.className = 'result-card ' + (verdict === 'Clean' || verdict === 'Low Risk' ? 'safe' : verdict === 'Medium Risk' ? 'warning' : 'danger');
+
+        document.getElementById('codeLinesScanned').textContent = data.lines_scanned;
+
+        // Risk meter
+        const score = data.risk_score;
+        document.getElementById('codeRiskScore').textContent = score;
+        const circle = document.getElementById('codeRiskCircle');
+        circle.style.strokeDashoffset = 314 - (314 * score / 100);
+        circle.style.stroke = score < 25 ? 'var(--accent-green)' : score < 50 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+        document.getElementById('codeRiskScore').style.color = score < 25 ? 'var(--accent-green)' : score < 50 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+
+        // Severity counts
+        const sevEl = document.getElementById('severityCounts');
+        const sevCounts = data.severity_counts || {};
+        const sevColors = { Critical: 'var(--accent-red)', High: '#ff6b35', Medium: 'var(--accent-yellow)', Low: 'var(--accent-cyan)' };
+        let sevHtml = '';
+        for (const [sev, count] of Object.entries(sevCounts)) {
+            sevHtml += `<div class="d-flex justify-between align-center">
+                <span style="font-family:var(--font-mono);font-size:12px;color:${sevColors[sev] || '#fff'}">${sev}</span>
+                <span class="badge" style="background:rgba(255,255,255,0.05);color:${sevColors[sev] || '#fff'};border:1px solid ${sevColors[sev] || '#fff'}33">${count}</span>
+            </div>`;
+        }
+        sevEl.innerHTML = sevHtml || '<div class="text-dim text-mono" style="font-size:12px">No vulnerabilities</div>';
+
+        // Vulnerability list
+        const vulnEl = document.getElementById('vulnList');
+        const vulns = data.findings || [];
+        document.getElementById('vulnCount').textContent = `${vulns.length} vulnerabilit${vulns.length !== 1 ? 'ies' : 'y'}`;
+
+        if (vulns.length > 0) {
+            vulnEl.innerHTML = vulns.map(v => {
+                const sevBadge = v.severity === 'Critical' ? 'badge-critical' :
+                                 v.severity === 'High' ? 'badge-danger' :
+                                 v.severity === 'Medium' ? 'badge-warning' : 'badge-info';
+                return `<div class="vuln-card">
+                    <div class="vuln-header">
+                        <div>
+                            <span class="vuln-id">${v.id} • Line ${v.line}</span>
+                            <div class="vuln-name">${v.name}</div>
+                        </div>
+                        <span class="badge ${sevBadge}">${v.severity}</span>
+                    </div>
+                    <div class="vuln-desc">${v.description}</div>
+                    <div class="vuln-code"><i class="bi bi-code"></i>  ${escapeHtml(v.code)}</div>
+                    <div class="vuln-recommendation"><i class="bi bi-lightbulb"></i>  ${v.recommendation}</div>
+                </div>`;
+            }).join('');
+        } else {
+            vulnEl.innerHTML = '<div class="text-dim text-mono" style="padding:24px;text-align:center">No vulnerabilities found — code appears clean!</div>';
+        }
+
+    } catch(e) {
+        document.getElementById('codeScanState').classList.add('hidden');
+        alert('Scan failed: ' + e.message);
+    }
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

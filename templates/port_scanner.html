@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title_extra %}- Port Scanner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-door-open-fill"></i> Port Scanner</h1>
+    <p class="page-subtitle">Scan any computer to find open ports and check for security risks</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Enter an IP address (or leave as 127.0.0.1 to scan your own computer), choose a scan speed, and click <strong>"Start Scan"</strong>.</span>
+</div>
+
+<div class="cyber-card mb-3">
+    <div class="card-header"><span class="card-title">Scan Settings</span></div>
+    <div class="d-flex gap-2" style="flex-wrap:wrap">
+        <input type="text" class="cyber-input" id="targetInput" value="127.0.0.1" placeholder="IP address" style="width:200px">
+        <select class="cyber-input" id="portRange" style="width:200px">
+            <option value="quick">Quick (10 ports)</option>
+            <option value="common" selected>Common (23 ports)</option>
+            <option value="full">Full (1-1024)</option>
+        </select>
+        <button class="btn-cyber" onclick="startScan()" id="scanBtn"><i class="bi bi-search"></i> Start Scan</button>
+    </div>
+</div>
+
+<div id="portResults" class="hidden">
+    <div class="grid-3 mb-3">
+        <div class="result-card" id="portVerdictCard">
+            <div class="text-mono text-dim" style="font-size:11px;margin-bottom:4px">VERDICT</div>
+            <div class="result-verdict" id="portVerdict">---</div>
+        </div>
+        <div class="cyber-card" style="text-align:center">
+            <div class="text-mono text-dim" style="font-size:11px">OPEN PORTS</div>
+            <div style="font-family:var(--font-display);font-size:36px;color:#fff;margin:8px 0" id="openCount">0</div>
+            <div class="text-mono text-dim" style="font-size:11px">of <span id="scannedCount">0</span> scanned</div>
+        </div>
+        <div class="cyber-card" style="text-align:center">
+            <div class="text-mono text-dim" style="font-size:11px">RISK SCORE</div>
+            <div class="risk-meter" style="margin:8px auto">
+                <svg width="100" height="100">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6"/>
+                    <circle id="portRiskCircle" cx="50" cy="50" r="40" fill="none" stroke="var(--accent-green)" stroke-width="6"
+                        stroke-dasharray="251" stroke-dashoffset="251" stroke-linecap="round"/>
+                </svg>
+                <div class="risk-meter-value" id="portRiskScore" style="font-size:24px">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cyber-card">
+        <div class="card-header"><span class="card-title">Open Ports</span></div>
+        <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
+            <table class="cyber-table">
+                <thead><tr><th>Port</th><th>Service</th><th>Description</th><th>Risk</th></tr></thead>
+                <tbody id="portsList"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function startScan() {
+    const btn = document.getElementById('scanBtn');
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block"></div> Scanning...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/scan-ports', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                target: document.getElementById('targetInput').value,
+                range: document.getElementById('portRange').value
+            })
+        });
+        const data = await res.json();
+        btn.innerHTML = '<i class="bi bi-search"></i> Scan Again';
+        btn.disabled = false;
+        if (data.error) { alert(data.error); return; }
+
+        document.getElementById('portResults').classList.remove('hidden');
+
+        document.getElementById('portVerdict').textContent = data.verdict;
+        const isRisky = data.risk_score > 30;
+        document.getElementById('portVerdict').className = 'result-verdict ' + (isRisky ? 'danger' : 'safe');
+        document.getElementById('portVerdictCard').className = 'result-card ' + (isRisky ? 'danger' : 'safe');
+
+        document.getElementById('openCount').textContent = data.open_count;
+        document.getElementById('scannedCount').textContent = data.ports_scanned;
+        document.getElementById('portRiskScore').textContent = data.risk_score;
+
+        const circle = document.getElementById('portRiskCircle');
+        circle.style.strokeDashoffset = 251 - (251 * data.risk_score / 100);
+        const color = data.risk_score < 25 ? 'var(--accent-green)' : data.risk_score < 50 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+        circle.style.stroke = color;
+
+        const tbody = document.getElementById('portsList');
+        tbody.innerHTML = (data.open_ports || []).map(p => `
+            <tr class="${p.risk === 'critical' ? 'suspicious' : ''}">
+                <td style="font-weight:600">${p.port}</td>
+                <td style="color:var(--accent-cyan)">${p.service}</td>
+                <td>${p.description}</td>
+                <td><span class="badge badge-${p.risk === 'critical' ? 'danger' : p.risk === 'warning' ? 'warning' : 'safe'}">${p.risk === 'critical' ? '⚠ Risky' : p.risk === 'warning' ? 'Note' : 'OK'}</span></td>
+            </tr>
+        `).join('') || '<tr><td colspan="4" class="text-dim" style="text-align:center;padding:24px">No open ports found — your system is well-protected!</td></tr>';
+
+    } catch(e) {
+        btn.innerHTML = '<i class="bi bi-search"></i> Start Scan';
+        btn.disabled = false;
+        alert('Scan failed: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

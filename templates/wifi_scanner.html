@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title_extra %}- Wi-Fi Scanner{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="bi bi-wifi"></i> Wi-Fi Scanner</h1>
+    <p class="page-subtitle">Check your Wi-Fi connection security and see nearby networks</p>
+</div>
+<div class="how-to-hint mb-3">
+    <i class="bi bi-info-circle-fill"></i>
+    <span><strong>How to use:</strong> Click <strong>"Scan Wi-Fi"</strong> to see your current connection details and any nearby networks. We'll check if your encryption is strong enough.</span>
+</div>
+
+<div class="cyber-card mb-3" style="text-align:center">
+    <button class="btn-cyber" onclick="scanWifi()" id="wifiBtn">
+        <i class="bi bi-wifi"></i> Scan Wi-Fi Networks
+    </button>
+</div>
+
+<!-- Connected Network -->
+<div id="wifiResults" class="hidden">
+    <div class="cyber-card mb-3" id="connectedCard">
+        <div class="card-header">
+            <span class="card-title">Your Current Connection</span>
+            <span class="badge" id="wifiRiskBadge">---</span>
+        </div>
+        <div class="grid-2">
+            <div>
+                <div style="display:grid;gap:12px" id="connectedInfo"></div>
+            </div>
+            <div style="text-align:center">
+                <div class="risk-meter" style="margin:0 auto">
+                    <svg width="120" height="120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                        <circle id="wifiCircle" cx="60" cy="60" r="50" fill="none" stroke="var(--accent-green)" stroke-width="8"
+                            stroke-dasharray="314" stroke-dashoffset="0" stroke-linecap="round"/>
+                    </svg>
+                    <div class="risk-meter-value" id="wifiIcon" style="font-size:32px">📶</div>
+                </div>
+                <div class="text-mono" style="font-size:12px;margin-top:8px" id="wifiRiskNote">---</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nearby Networks -->
+    <div class="cyber-card">
+        <div class="card-header">
+            <span class="card-title">Nearby Networks</span>
+            <span class="badge badge-info" id="netCount">0 found</span>
+        </div>
+        <div style="overflow-x:auto;max-height:350px;overflow-y:auto">
+            <table class="cyber-table">
+                <thead>
+                    <tr><th>Network Name</th><th>Security</th><th>Signal</th><th>Risk</th></tr>
+                </thead>
+                <tbody id="networksList"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function scanWifi() {
+    document.getElementById('wifiBtn').innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block"></div> Scanning...';
+
+    try {
+        const res = await fetch('/api/scan-wifi');
+        const data = await res.json();
+
+        document.getElementById('wifiBtn').innerHTML = '<i class="bi bi-wifi"></i> Scan Again';
+        document.getElementById('wifiResults').classList.remove('hidden');
+
+        const conn = data.connected;
+        if (conn) {
+            const riskColors = {safe: 'var(--accent-green)', warning: 'var(--accent-yellow)', critical: 'var(--accent-red)'};
+            const riskLabels = {safe: 'Secure', warning: 'Acceptable', critical: 'Unsafe!'};
+
+            document.getElementById('connectedInfo').innerHTML = `
+                <div class="d-flex justify-between"><span class="text-dim">Network Name</span><span style="color:#fff;font-weight:600">${conn.ssid}</span></div>
+                <div class="d-flex justify-between"><span class="text-dim">Encryption</span><span style="color:${riskColors[conn.risk]}">${conn.auth}</span></div>
+                <div class="d-flex justify-between"><span class="text-dim">Cipher</span><span>${conn.cipher}</span></div>
+                <div class="d-flex justify-between"><span class="text-dim">Signal</span><span>${conn.signal}</span></div>
+                <div class="d-flex justify-between"><span class="text-dim">Channel</span><span>${conn.channel}</span></div>
+            `;
+
+            const badge = document.getElementById('wifiRiskBadge');
+            badge.textContent = riskLabels[conn.risk];
+            badge.className = 'badge badge-' + (conn.risk === 'safe' ? 'safe' : conn.risk === 'warning' ? 'warning' : 'danger');
+
+            document.getElementById('wifiRiskNote').textContent = conn.risk_note;
+            document.getElementById('wifiRiskNote').style.color = riskColors[conn.risk];
+
+            const circle = document.getElementById('wifiCircle');
+            circle.style.stroke = riskColors[conn.risk];
+        }
+
+        // Networks
+        const nets = data.networks || [];
+        document.getElementById('netCount').textContent = `${nets.length} found`;
+        const tbody = document.getElementById('networksList');
+        tbody.innerHTML = nets.map(n => {
+            const rc = {safe: 'badge-safe', warning: 'badge-warning', critical: 'badge-danger', info: 'badge-info'};
+            return `<tr>
+                <td style="font-weight:500">${n.ssid || '(Hidden)'}</td>
+                <td>${n.auth || 'Unknown'}</td>
+                <td>${n.signal || '--'}</td>
+                <td><span class="badge ${rc[n.risk] || 'badge-info'}">${n.risk === 'critical' ? 'Unsafe' : n.risk === 'safe' ? 'Secure' : 'OK'}</span></td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="4" class="text-dim" style="text-align:center;padding:24px">No networks found</td></tr>';
+
+    } catch(e) {
+        document.getElementById('wifiBtn').innerHTML = '<i class="bi bi-wifi"></i> Scan Wi-Fi';
+        alert('Wi-Fi scan failed: ' + e.message);
+    }
+}
+</script>
+{% endblock %}
