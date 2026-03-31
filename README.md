@@ -52,7 +52,7 @@ Equipped with a robust suite of 14 integrated security modules, CyberShield Ulti
 ### Step-by-Step Setup
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/Inamulhassan-dev/cybershield-ultimate.git
+   git clone https://github.com/Inamulhassan-dev/cybershield-ultimate-soc.git
    cd cybershield-ultimate
    ```
 
